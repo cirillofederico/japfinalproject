@@ -1,7 +1,8 @@
 document.addEventListener("DOMContentLoaded", async () => {
   let username = localStorage.getItem("username"); // Obtener el nombre de usuario
-
-  comments = []; // Esta variable almacenará los comentarios
+  const commentsByProduct = {};
+  let apiComments = []; // Esta variable almacenará los comentarios de la API
+  let localStorageComments = {}; // Almacena los comentarios del almacenamiento local
 
   // Obtenemos el identificador del producto guardado en el almacenamiento local
   const selectedProductId = localStorage.getItem("selectedProductId");
@@ -25,7 +26,59 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Una vez que obtenemos la información del producto, la mostramos en la página
     const productInfoContainer = document.getElementById("product-info");
-    productInfoContainer.classList.add("card", "rounded-3", "m-4", "shadow", "darkModeProduct");
+    productInfoContainer.classList.add(
+      "card",
+      "rounded-3",
+      "m-4",
+      "shadow",
+      "darkModeProduct"
+    );
+    // Creamos un botón de "Agregar al carrito"
+    const addToCartButton = document.createElement("button");
+    addToCartButton.textContent = "Agregar al carrito";
+    addToCartButton.classList.add("btn", "btn-success", "m-2", "darkModeButton");
+
+    // Agregamos un evento "click" al botón "Agregar al carrito"
+    addToCartButton.addEventListener("click", () => {
+      // Creamos un objeto que representa el producto a agregar al carrito
+      const productToAddToCart = {
+        id: selectedProductId, // Usar el ID del producto
+        image: product.images
+          ? (Array.isArray(product.images) && product.images.length > 0
+            ? product.images[0]
+            : product.images)
+          : product.image,
+        name: product.name,
+        unitCost: product.cost,
+        currency: product.currency,
+        count: 1, // Inicialmente, el producto se agrega con una cantidad de 1
+      };
+
+      // Verificamos si ya hay productos en el carrito (en localStorage)
+      let cartItems = JSON.parse(localStorage.getItem("cart")) || [];
+
+      // Verificamos si el producto ya existe en el carrito
+      const existingProductIndex = cartItems.findIndex(item => item.id === productToAddToCart.id);
+
+      if (existingProductIndex !== -1) {
+        // Si el producto ya está en el carrito, aumentamos su cantidad en 1
+        cartItems[existingProductIndex].count++;
+      } else {
+        // Si el producto no existe en el carrito, lo agregamos al arreglo de productos del carrito
+        cartItems.push(productToAddToCart);
+      }
+
+      // Almacenamos el carrito actualizado en el localStorage
+      localStorage.setItem("cart", JSON.stringify(cartItems));
+
+      // Notificamos al usuario que el producto se ha añadido al carrito
+      alert("El producto ha sido añadido al carrito.");
+
+    });
+
+    // Agregamos el botón de "Agregar al carrito" al contenedor de product-info
+    productInfoContainer.appendChild(addToCartButton);
+
 
     // Creamos un elemento div para el carrusel
     const carouselContainer = document.createElement("div");
@@ -37,12 +90,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const carouselInner = document.createElement("div");
     carouselInner.classList.add("carousel-inner");
 
-
     // Iteramos a través del array 'images' y creamos elementos 'div' para cada imagen
     product.images.forEach((imageUrl, index) => {
       const carouselItem = document.createElement("div");
       carouselItem.classList.add("carousel-item");
-
 
       if (index === 0) {
         carouselItem.classList.add("active");
@@ -60,6 +111,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       carouselItem.appendChild(productImage);
       carouselInner.appendChild(carouselItem);
+
     });
 
     // Agregamos el carrusel al contenedor de información del producto
@@ -80,7 +132,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const productSoldElement = document.createElement("p");
     productSoldElement.textContent = `Cantidad de productos vendidos: ${product.soldCount}`;
-    productSoldElement.classList.add("card-text", "text-secondary", "mb-4", "darkModeSold");
+    productSoldElement.classList.add(
+      "card-text",
+      "text-secondary",
+      "mb-4",
+      "darkModeSold"
+    );
 
     // Agregamos los elementos de texto al contenedor de información del producto
     productInfoContainer.appendChild(productNameElement);
@@ -115,7 +172,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Obtenemos y mostramos los comentarios del producto
     const productCommentsUrl = `${PRODUCT_INFO_COMMENTS_URL}${selectedProductId}${EXT_TYPE}`;
     const commentsResponse = await fetch(productCommentsUrl);
-    let comments = await commentsResponse.json();
+    apiComments = await commentsResponse.json();
+
+    // Obtenemos los comentarios del almacenamiento local, si existen
+    if (localStorage.getItem("comments")) {
+      localStorageComments = JSON.parse(localStorage.getItem("comments")) || {};
+    }
 
     // Creamos una sección para mostrar los comentarios
     const commentsSection = document.createElement("div");
@@ -128,9 +190,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     commentsSection.appendChild(commentsHeader);
 
     // Iteramos sobre los comentarios y los mostramos
-    comments.forEach((comment) => {
+    apiComments.forEach((comment) => {
       const commentCard = document.createElement("div");
-      commentCard.classList.add("card", "mb-3", "w-50", "mx-auto", "darkModeComments");
+      commentCard.classList.add(
+        "card",
+        "mb-3",
+        "w-50",
+        "mx-auto",
+        "darkModeComments",
+        "responsiveComments"
+        );
 
       const commentCardBody = document.createElement("div");
       commentCardBody.classList.add("card-body");
@@ -159,7 +228,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const commentDescription = document.createElement("p");
       commentDescription.textContent = comment.description;
-      commentDescription.classList.add("m-4",  "darkModeTextComments");
+      commentDescription.classList.add("m-4", "darkModeTextComments");
 
       const commentRating = createStarRating(comment.score); // Llama a la función para crear las estrellas
 
@@ -179,7 +248,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Agregamos sección para ingresar comentarios y calificación
     const commentFormContainer = document.createElement("div");
     commentFormContainer.id = "comment-form";
-    commentFormContainer.classList.add("mt-4", "w-50", "mx-auto");
+    commentFormContainer.classList.add("mt-4", "w-50", "mx-auto", "responsiveForm");
 
     // Título para la sección de comentarios
     const commentTitle = document.createElement("h3");
@@ -210,36 +279,49 @@ document.addEventListener("DOMContentLoaded", async () => {
         dateTime: new Date().toLocaleString(),
       };
 
-      // Agregamos el nuevo comentario a la lista existente
-      comments.push(newComment);
+      // Agregamos el comentario al objeto 'commentsByProduct'
+      commentsByProduct[selectedProductId] =
+        commentsByProduct[selectedProductId] || [];
+      commentsByProduct[selectedProductId].push(newComment);
 
       // Almacenamos la lista actualizada en el almacenamiento local
-      localStorage.setItem("comments", JSON.stringify(comments));
+      localStorageComments[selectedProductId] =
+        commentsByProduct[selectedProductId];
+      localStorage.setItem("comments", JSON.stringify(localStorageComments));
+
+      // Actualizamos la vista de los comentarios
+      updateCommentsView(selectedProductId);
 
       // Limpiamos el formulario
       commentForm.reset();
-
-      // Actualizamos la vista de los comentarios
-      updateCommentsView();
     });
 
     // Función para actualizar la vista de los comentarios
-    function updateCommentsView() {
+    function updateCommentsView(productId) {
+      // Combinar los comentarios de la API y los del almacenamiento local
+      const combinedComments = [
+        ...apiComments,
+        ...(localStorageComments[productId] || []),
+      ];
+
       // Eliminamos todos los comentarios actuales en la vista
       const commentsSection = document.querySelector(".mt-4");
       commentsSection.innerHTML = "";
 
-      // Recorremos la lista de comentarios y los mostramos en la vista
-      comments.forEach((comment) => {
-        // Creamos elementos de la vista para cada comentario
+      // Recorremos la lista de comentarios combinados y los mostramos en la vista
+      combinedComments.forEach((comment) => {
+        // Crear elementos de la vista para cada comentario
         const commentCard = document.createElement("div");
-        commentCard.classList.add("card", "mb-3", "w-50", "mx-auto");
+        commentCard.classList.add(
+          "card",
+          "mb-3",
+          "w-50",
+          "mx-auto",
+          "darkModeComments"
+        );
 
         const commentCardBody = document.createElement("div");
         commentCardBody.classList.add("card-body");
-
-        const commentText = document.createElement("p");
-        commentText.textContent = comment.comment;
 
         const commentUser = document.createElement("p");
         commentUser.textContent = comment.user;
@@ -260,11 +342,19 @@ document.addEventListener("DOMContentLoaded", async () => {
           "responsiveComment"
         );
 
+        const commentText = document.createElement("p");
+        commentText.textContent = comment.comment;
+
+        const commentDescription = document.createElement("p");
+        commentDescription.textContent = comment.description;
+        commentDescription.classList.add("m-4", "darkModeTextComments");
+
         const commentRating = createStarRating(comment.score); // Llama a la función para crear las estrellas
 
         commentCardBody.appendChild(commentUser);
         commentCardBody.appendChild(commentDate);
         commentCardBody.appendChild(commentText);
+        commentCardBody.appendChild(commentDescription);
         commentCardBody.appendChild(commentRating);
 
         commentCard.appendChild(commentCardBody);
@@ -314,7 +404,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Botón para enviar el comentario
     const submitButton = document.createElement("button");
     submitButton.type = "submit";
-    submitButton.classList.add("btn", "btn-primary", "mt-2", "mb-4", "darkModeButton");
+    submitButton.classList.add(
+      "btn",
+      "btn-primary",
+      "mt-2",
+      "mb-4",
+      "darkModeButton"
+    );
     submitButton.textContent = "Enviar comentario";
 
     // Agregar elementos al formulario
@@ -354,7 +450,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     product.relatedProducts.forEach(async (relatedProduct) => {
       // Creamos un div para cada producto relacionado
       const relatedProductCard = document.createElement("div");
-      relatedProductCard.classList.add("card", "m-3", "w-25", "text-center");
+      relatedProductCard.classList.add("card", "m-3", "w-25", "text-center", "responsiveTest");
 
       // Agregamos un controlador de eventos para cada producto relacionado
       relatedProductCard.addEventListener("click", () => {
@@ -367,12 +463,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Creamos el cuerpo del producto relacionado
       const relatedProductCardBody = document.createElement("div");
-      relatedProductCardBody.classList.add("card-body");
+      relatedProductCardBody.classList.add("card-body", "w-100", "bg-dark");
 
       // Agregamos el nombre del producto relacionado
       const relatedProductName = document.createElement("h5");
       relatedProductName.textContent = relatedProduct.name;
-      relatedProductName.classList.add("card-title");
+      relatedProductName.classList.add("card-title", "text-info");
 
       // Agregamos la imagen del producto relacionado
       const relatedProductImage = document.createElement("img");
@@ -398,8 +494,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Cargar comentarios almacenados en el almacenamiento local
     if (localStorage.getItem("comments")) {
-      comments = JSON.parse(localStorage.getItem("comments"));
-      updateCommentsView(); // Actualizar la vista de los comentarios
+      const storedComments = JSON.parse(localStorage.getItem("comments"));
+
+      // Verifica si hay comentarios almacenados para el producto actual
+      if (storedComments[selectedProductId]) {
+        commentsByProduct[selectedProductId] =
+          storedComments[selectedProductId];
+      }
+
+      // Actualiza la vista de los comentarios solo para el producto actual
+      updateCommentsView(selectedProductId);
     }
   } catch (error) {
     console.error(
